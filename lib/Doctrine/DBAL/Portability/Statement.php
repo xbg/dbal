@@ -2,7 +2,8 @@
 
 namespace Doctrine\DBAL\Portability;
 
-use PDO;
+use Doctrine\DBAL\FetchMode;
+use Doctrine\DBAL\ParameterType;
 
 /**
  * Portability wrapper for a Statement.
@@ -31,7 +32,7 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
     /**
      * @var integer
      */
-    private $defaultFetchMode = PDO::FETCH_BOTH;
+    private $defaultFetchMode = FetchMode::MIXED;
 
     /**
      * Wraps <tt>Statement</tt> and applies portability measures.
@@ -49,15 +50,15 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
     /**
      * {@inheritdoc}
      */
-    public function bindParam($column, &$variable, $type = null, $length = null)
+    public function bindParam($column, &$variable, $type = ParameterType::STRING, $length = null)
     {
         return $this->stmt->bindParam($column, $variable, $type, $length);
     }
+
     /**
      * {@inheritdoc}
      */
-
-    public function bindValue($param, $value, $type = null)
+    public function bindValue($param, $value, $type = ParameterType::STRING)
     {
         return $this->stmt->bindValue($param, $value, $type);
     }
@@ -105,11 +106,11 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
     /**
      * {@inheritdoc}
      */
-    public function setFetchMode($fetchMode, $arg1 = null, $arg2 = null)
+    public function setFetchMode($fetchMode, ...$args)
     {
         $this->defaultFetchMode = $fetchMode;
 
-        return $this->stmt->setFetchMode($fetchMode, $arg1, $arg2);
+        return $this->stmt->setFetchMode($fetchMode, ...$args);
     }
 
     /**
@@ -125,16 +126,17 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
     /**
      * {@inheritdoc}
      */
-    public function fetch($fetchMode = null, $cursorOrientation = \PDO::FETCH_ORI_NEXT, $cursorOffset = 0)
+    public function fetch($fetchMode = null, ...$args)
     {
         $fetchMode = $fetchMode ?: $this->defaultFetchMode;
 
-        $row = $this->stmt->fetch($fetchMode);
+        $row = $this->stmt->fetch($fetchMode, ...$args);
 
-        $row = $this->fixRow($row,
-            $this->portability & (Connection::PORTABILITY_EMPTY_TO_NULL|Connection::PORTABILITY_RTRIM),
-            !is_null($this->case) && ($fetchMode == PDO::FETCH_ASSOC || $fetchMode == PDO::FETCH_BOTH) && ($this->portability & Connection::PORTABILITY_FIX_CASE)
-        );
+        $iterateRow = $this->portability & (Connection::PORTABILITY_EMPTY_TO_NULL|Connection::PORTABILITY_RTRIM);
+        $fixCase    = ! is_null($this->case) && ($fetchMode == FetchMode::ASSOCIATIVE || $fetchMode == FetchMode::MIXED)
+            && ($this->portability & Connection::PORTABILITY_FIX_CASE);
+
+        $row = $this->fixRow($row, $iterateRow, $fixCase);
 
         return $row;
     }
@@ -142,23 +144,22 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
     /**
      * {@inheritdoc}
      */
-    public function fetchAll($fetchMode = null, $fetchArgument = null, $ctorArgs = null)
+    public function fetchAll($fetchMode = null, ...$args)
     {
         $fetchMode = $fetchMode ?: $this->defaultFetchMode;
 
-        if ($fetchArgument) {
-            $rows = $this->stmt->fetchAll($fetchMode, $fetchArgument);
-        } else {
-            $rows = $this->stmt->fetchAll($fetchMode);
-        }
+        $rows = $this->stmt->fetchAll($fetchMode, ...$args);
 
         $iterateRow = $this->portability & (Connection::PORTABILITY_EMPTY_TO_NULL|Connection::PORTABILITY_RTRIM);
-        $fixCase = !is_null($this->case) && ($fetchMode == PDO::FETCH_ASSOC || $fetchMode == PDO::FETCH_BOTH) && ($this->portability & Connection::PORTABILITY_FIX_CASE);
+        $fixCase    = ! is_null($this->case)
+            && ($fetchMode === FetchMode::ASSOCIATIVE || $fetchMode === FetchMode::MIXED)
+            && ($this->portability & Connection::PORTABILITY_FIX_CASE);
+
         if ( ! $iterateRow && !$fixCase) {
             return $rows;
         }
 
-        if ($fetchMode === PDO::FETCH_COLUMN) {
+        if ($fetchMode === FetchMode::COLUMN) {
             foreach ($rows as $num => $row) {
                 $rows[$num] = [$row];
             }
@@ -168,7 +169,7 @@ class Statement implements \IteratorAggregate, \Doctrine\DBAL\Driver\Statement
             $rows[$num] = $this->fixRow($row, $iterateRow, $fixCase);
         }
 
-        if ($fetchMode === PDO::FETCH_COLUMN) {
+        if ($fetchMode === FetchMode::COLUMN) {
             foreach ($rows as $num => $row) {
                 $rows[$num] = $row[0];
             }

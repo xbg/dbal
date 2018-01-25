@@ -2,6 +2,8 @@
 
 namespace Doctrine\DBAL\Driver;
 
+use Doctrine\DBAL\ParameterType;
+
 /**
  * Statement interface.
  * Drivers must implement this interface.
@@ -26,12 +28,12 @@ interface Statement extends ResultStatement
      *                       this will be a parameter name of the form :name. For a prepared statement
      *                       using question mark placeholders, this will be the 1-indexed position of the parameter.
      * @param mixed   $value The value to bind to the parameter.
-     * @param integer $type  Explicit data type for the parameter using the PDO::PARAM_* constants.
+     * @param integer $type  Explicit data type for the parameter using the {@link \Doctrine\DBAL\ParameterType}
+     *                       constants.
      *
      * @return boolean TRUE on success or FALSE on failure.
      */
-    function bindValue($param, $value, $type = null);
-
+    public function bindValue($param, $value, $type = ParameterType::STRING);
 
     /**
      * Binds a PHP variable to a corresponding named (not supported by mysqli driver, see comment below) or question
@@ -51,15 +53,14 @@ interface Statement extends ResultStatement
      *                               this will be a parameter name of the form :name. For a prepared statement using
      *                               question mark placeholders, this will be the 1-indexed position of the parameter.
      * @param mixed        $variable Name of the PHP variable to bind to the SQL statement parameter.
-     * @param integer|null $type     Explicit data type for the parameter using the PDO::PARAM_* constants. To return
-     *                               an INOUT parameter from a stored procedure, use the bitwise OR operator to set the
-     *                               PDO::PARAM_INPUT_OUTPUT bits for the data_type parameter.
+     * @param integer|null $type     Explicit data type for the parameter using the {@link \Doctrine\DBAL\ParameterType}
+     *                               constants.
      * @param integer|null $length   You must specify maxlength when using an OUT bind
      *                               so that PHP allocates enough memory to hold the returned value.
      *
      * @return boolean TRUE on success or FALSE on failure.
      */
-    function bindParam($column, &$variable, $type = null, $length = null);
+    public function bindParam($column, &$variable, $type = ParameterType::STRING, $length = null);
 
     /**
      * Fetches the SQLSTATE associated with the last operation on the statement handle.
@@ -68,7 +69,7 @@ interface Statement extends ResultStatement
      *
      * @return string The error code string.
      */
-    function errorCode();
+    public function errorCode();
 
     /**
      * Fetches extended error information associated with the last operation on the statement handle.
@@ -77,7 +78,7 @@ interface Statement extends ResultStatement
      *
      * @return array The error info array.
      */
-    function errorInfo();
+    public function errorInfo();
 
     /**
      * Executes a prepared statement
@@ -94,7 +95,7 @@ interface Statement extends ResultStatement
      *
      * @return boolean TRUE on success or FALSE on failure.
      */
-    function execute($params = null);
+    public function execute($params = null);
 
     /**
      * Returns the number of rows affected by the last DELETE, INSERT, or UPDATE statement
@@ -107,5 +108,5 @@ interface Statement extends ResultStatement
      *
      * @return integer The number of rows.
      */
-    function rowCount();
+    public function rowCount();
 }

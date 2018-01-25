@@ -2,7 +2,6 @@
 
 namespace Doctrine\DBAL;
 
-use PDO;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Driver\Statement as DriverStatement;
 
@@ -85,7 +84,7 @@ class Statement implements \IteratorAggregate, DriverStatement
      *
      * @return boolean TRUE on success, FALSE on failure.
      */
-    public function bindValue($name, $value, $type = null)
+    public function bindValue($name, $value, $type = ParameterType::STRING)
     {
         $this->params[$name] = $value;
         $this->types[$name] = $type;
@@ -97,7 +96,7 @@ class Statement implements \IteratorAggregate, DriverStatement
                 $value = $type->convertToDatabaseValue($value, $this->platform);
                 $bindingType = $type->getBindingType();
             } else {
-                $bindingType = $type; // PDO::PARAM_* constants
+                $bindingType = $type;
             }
 
             return $this->stmt->bindValue($name, $value, $bindingType);
@@ -119,7 +118,7 @@ class Statement implements \IteratorAggregate, DriverStatement
      *
      * @return boolean TRUE on success, FALSE on failure.
      */
-    public function bindParam($name, &$var, $type = PDO::PARAM_STR, $length = null)
+    public function bindParam($name, &$var, $type = ParameterType::STRING, $length = null)
     {
         $this->params[$name] = $var;
         $this->types[$name] = $type;
@@ -213,15 +212,9 @@ class Statement implements \IteratorAggregate, DriverStatement
     /**
      * {@inheritdoc}
      */
-    public function setFetchMode($fetchMode, $arg2 = null, $arg3 = null)
+    public function setFetchMode($fetchMode, ...$args)
     {
-        if ($arg2 === null) {
-            return $this->stmt->setFetchMode($fetchMode);
-        } elseif ($arg3 === null) {
-            return $this->stmt->setFetchMode($fetchMode, $arg2);
-        }
-
-        return $this->stmt->setFetchMode($fetchMode, $arg2, $arg3);
+        return $this->stmt->setFetchMode($fetchMode, ...$args);
     }
 
     /**
@@ -237,21 +230,17 @@ class Statement implements \IteratorAggregate, DriverStatement
     /**
      * {@inheritdoc}
      */
-    public function fetch($fetchMode = null, $cursorOrientation = \PDO::FETCH_ORI_NEXT, $cursorOffset = 0)
+    public function fetch($fetchMode = null, ...$args)
     {
-        return $this->stmt->fetch($fetchMode);
+        return $this->stmt->fetch($fetchMode, ...$args);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function fetchAll($fetchMode = null, $fetchArgument = null, $ctorArgs = null)
+    public function fetchAll($fetchMode = null, ...$args)
     {
-        if ($fetchArgument) {
-            return $this->stmt->fetchAll($fetchMode, $fetchArgument);
-        }
-
-        return $this->stmt->fetchAll($fetchMode);
+        return $this->stmt->fetchAll($fetchMode, ...$args);
     }
 
     /**

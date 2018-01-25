@@ -5,7 +5,7 @@ namespace Doctrine\DBAL\Cache;
 use Doctrine\DBAL\Driver\Statement;
 use Doctrine\DBAL\Driver\ResultStatement;
 use Doctrine\Common\Cache\Cache;
-use PDO;
+use Doctrine\DBAL\FetchMode;
 
 /**
  * Cache statement for SQL results.
@@ -63,7 +63,7 @@ class ResultCacheStatement implements \IteratorAggregate, ResultStatement
     /**
      * @var integer
      */
-    private $defaultFetchMode = PDO::FETCH_BOTH;
+    private $defaultFetchMode = FetchMode::MIXED;
 
     /**
      * @param \Doctrine\DBAL\Driver\Statement $stmt
@@ -110,7 +110,7 @@ class ResultCacheStatement implements \IteratorAggregate, ResultStatement
     /**
      * {@inheritdoc}
      */
-    public function setFetchMode($fetchMode, $arg2 = null, $arg3 = null)
+    public function setFetchMode($fetchMode, ...$args)
     {
         $this->defaultFetchMode = $fetchMode;
 
@@ -130,30 +130,38 @@ class ResultCacheStatement implements \IteratorAggregate, ResultStatement
     /**
      * {@inheritdoc}
      */
-    public function fetch($fetchMode = null, $cursorOrientation = \PDO::FETCH_ORI_NEXT, $cursorOffset = 0)
+    public function fetch($fetchMode = null, ...$args)
     {
         if ($this->data === null) {
             $this->data = [];
         }
 
-        $row = $this->statement->fetch(PDO::FETCH_ASSOC);
+        $row = $this->statement->fetch(FetchMode::ASSOCIATIVE);
+
         if ($row) {
             $this->data[] = $row;
 
             $fetchMode = $fetchMode ?: $this->defaultFetchMode;
 
-            if ($fetchMode == PDO::FETCH_ASSOC) {
+            if ($fetchMode == FetchMode::ASSOCIATIVE) {
                 return $row;
-            } elseif ($fetchMode == PDO::FETCH_NUM) {
-                return array_values($row);
-            } elseif ($fetchMode == PDO::FETCH_BOTH) {
-                return array_merge($row, array_values($row));
-            } elseif ($fetchMode == PDO::FETCH_COLUMN) {
-                return reset($row);
-            } else {
-                throw new \InvalidArgumentException("Invalid fetch-style given for caching result.");
             }
+
+            if ($fetchMode == FetchMode::NUMERIC) {
+                return array_values($row);
+            }
+
+            if ($fetchMode == FetchMode::MIXED) {
+                return array_merge($row, array_values($row));
+            }
+
+            if ($fetchMode == FetchMode::COLUMN) {
+                return reset($row);
+            }
+
+            throw new \InvalidArgumentException('Invalid fetch-style given for caching result.');
         }
+
         $this->emptied = true;
 
         return false;
@@ -162,10 +170,10 @@ class ResultCacheStatement implements \IteratorAggregate, ResultStatement
     /**
      * {@inheritdoc}
      */
-    public function fetchAll($fetchMode = null, $fetchArgument = null, $ctorArgs = null)
+    public function fetchAll($fetchMode = null, ...$args)
     {
         $rows = [];
-        while ($row = $this->fetch($fetchMode)) {
+        while ($row = $this->fetch($fetchMode, ...$args)) {
             $rows[] = $row;
         }
 
@@ -177,7 +185,8 @@ class ResultCacheStatement implements \IteratorAggregate, ResultStatement
      */
     public function fetchColumn($columnIndex = 0)
     {
-        $row = $this->fetch(PDO::FETCH_NUM);
+        $row = $this->fetch(FetchMode::NUMERIC);
+
         if (!isset($row[$columnIndex])) {
             // TODO: verify this is correct behavior
             return false;
